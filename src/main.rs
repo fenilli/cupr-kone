@@ -1,109 +1,33 @@
-use std::{
-    thread::sleep,
-    time::{Duration, Instant},
-};
-
-use rand::Rng;
-
-use crate::core::world::World;
-
 mod core;
 
-#[derive(Debug)]
-struct Position {
-    x: f32,
-    y: f32,
-    z: f32,
-}
+use core::{entity_component_set::EntityComponentSet, entity_manager::EntityManager};
+use std::any::type_name;
 
-#[derive(Debug)]
-struct Velocity {
-    x: f32,
-    y: f32,
-    z: f32,
-}
+#[derive(Debug, Default)]
+struct Position(f32, f32, f32);
 
 fn main() {
-    let mut world = World::new();
-    let mut rng = rand::rng();
+    let mut entity_manager = EntityManager::new();
+    let mut position_set = EntityComponentSet::<Position>::new();
 
-    for _ in 0..100000 {
-        let e = world.spawn();
+    let e = entity_manager.allocate();
+    println!("Allocated entity: {}", e);
 
-        world.insert(
-            e,
-            Position {
-                x: rng.random_range(-100.0..100.0),
-                y: rng.random_range(-100.0..100.0),
-                z: rng.random_range(-100.0..100.0),
-            },
-        );
+    position_set.insert(e, Position::default());
+    println!("Inserted {:?} for entity {}", type_name::<Position>(), e);
+    println!("PositionSet: {}", position_set);
 
-        world.insert(
-            e,
-            Velocity {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            },
-        );
-    }
+    position_set.remove(e);
+    println!("PositionSet: {}", position_set);
 
-    let ticks_per_second: f64 = 60.0;
-    let frame_duration = Duration::from_secs_f64(1.0 / ticks_per_second);
+    position_set.insert(e, Position(1.0, 1.0, 1.0));
+    println!("Re-inserted {:?} for entity {}", type_name::<Position>(), e);
+    println!("PositionSet: {}", position_set);
 
-    let mut last_report = Instant::now();
-    let mut tick_count = 0;
+    let e2 = entity_manager.allocate();
+    println!("Allocated entity: {}", e2);
 
-    loop {
-        let frame_start = Instant::now();
-
-        tick_count += 1;
-        update(&mut world);
-
-        if last_report.elapsed() >= Duration::from_secs(1) {
-            println!("Ticks in last second: {}", tick_count);
-            tick_count = 0;
-            last_report = Instant::now();
-        }
-
-        let elapsed = frame_start.elapsed();
-        if elapsed < frame_duration {
-            sleep(frame_duration - elapsed);
-        }
-    }
-}
-
-fn update(world: &mut World) {
-    if let Some(mut set) = world.query_mut::<Velocity>() {
-        for (_, vel) in set.iter_mut() {
-            vel.x += 1.0;
-            vel.y += 2.0;
-            vel.z += 3.0;
-        }
-    }
-
-    if let (Some(aset), Some(bset)) = (world.query_mut::<Position>(), world.query::<Velocity>()) {
-        if aset.len() <= bset.len() {
-            let (mut small, large) = (aset, bset);
-
-            for (entity, pos) in small.iter_mut() {
-                if let Some(vel) = large.get(entity) {
-                    pos.x += vel.x;
-                    pos.y += vel.y;
-                    pos.z += vel.z;
-                }
-            }
-        } else {
-            let (small, mut large) = (bset, aset);
-
-            for (entity, vel) in small.iter() {
-                if let Some(pos) = large.get_mut(entity) {
-                    pos.x += vel.x;
-                    pos.y += vel.y;
-                    pos.z += vel.z;
-                }
-            }
-        }
-    }
+    position_set.insert(e2, Position(2.0, 2.0, 2.0));
+    println!("Inserted {:?} for entity {}", type_name::<Position>(), e2);
+    println!("PositionSet: {}", position_set);
 }
